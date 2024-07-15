@@ -1,0 +1,495 @@
+1. You Team must promote shark Tank India season 4, The senior come up with the idea to show highest funding domain wise so that new startups can be attracted, and you were assigned the task to show the same.
+
+select column_name from information_schema.columns
+where table_name = 'stark_tank_data'
+
+
+select * from
+(
+select industry, total_deal_amount_in_lakhs, 
+row_number() over(partition by industry order by total_deal_amount_in_lakhs desc)  as rnk
+from public."stark_tank_data"
+group by industry, total_deal_amount_in_lakhs
+-- order by industry asc, total_deal_amount_in_lakhs desc
+)
+where rnk = 1
+
+
+2. You have been assigned the role of finding the domain where female as pitchers have female to male pitcher ratio >70%
+
+
+select *, round((female_pres / male_pres) * 100, 2) as ratio_of_70
+from
+	(
+		select industry, sum(female_presenters :: numeric) as female_pres, sum(male_presenters :: numeric) as male_pres
+		from public."stark_tank_data"
+		group by industry
+		having sum(female_presenters :: numeric) > 0 and sum(male_presenters :: numeric) > 0
+		order by female_pres desc
+	)
+where  round((female_pres / male_pres) * 100, 2) > 70
+order by ratio_of_70  desc 
+
+
+3. You are working at marketing firm of Shark Tank India, you have got the task to determine volume of per season sale pitch made, pitches who received offer and pitches that were converted. Also show the percentage of pitches converted and percentage of pitches entertained.
+
+select a.season_number, a.total, b.Rev_offer, c.Acc_offer,
+round((b.Rev_offer :: numeric / a.total :: numeric) * 100, 2) as "R_%",
+round((c.Acc_offer :: numeric / a.total :: numeric) * 100, 2) as "A_%"
+from (
+			(
+				select season_number, 
+				count(startup_name) as total from public."stark_tank_data"
+				group by season_number
+
+			) a
+			inner join 
+			(	select season_number, 
+				count(startup_name) as Rev_offer from public."stark_tank_data"
+				where received_offer = 'Yes'
+				group by season_number
+			) b on a.season_number = b.season_number
+
+			inner join
+			(
+				select season_number, 
+				count(startup_name) as Acc_offer from public."stark_tank_data"
+				where accepted_offer = 'Yes'
+				group by season_number
+			) c on c.season_number = b.season_number
+	)
+
+
+
+4. As a venture capital firm specializing in investing in startups featured on a renowned entrepreneurship TV show, you are determining the season with the highest average monthly sales and identify the top 5 industries with the highest average monthly sales during that season to optimize investment decisions?
+
+
+
+select industry, round(avg(monthly_sales_in_lakhs :: numeric), 2) as avg_monthly1
+from public."stark_tank_data"
+where season_number = (
+		select season_number
+		from public."stark_tank_data"
+		where monthly_sales_in_lakhs not like '% Mentioned%'
+		group by season_number
+-- 		order by avg_monthly2 desc
+		limit 1
+	) and monthly_sales_in_lakhs not like '% Mentioned%'
+group by industry
+order by avg_monthly1 desc
+limit 5
+
+
+
+5. As a data scientist at our firm, your role involves solving real-world challenges like identifying industries with consistent increases in funds raised over multiple seasons. This requires focusing on industries where data is available across all three seasons. Once these industries are pinpointed, your task is to delve into the specifics, analyzing the number of pitches made, offers received, and offers converted per season within each industry.
+
+
+-- select industry, sum(total_deal_amount_in_lakhs :: numeric ) as monthsum
+-- from public."stark_tank_data"
+-- group by industry
+
+{
+CTE Creation ----------- 
+
+WITH cte1 AS (
+    SELECT 
+        industry,
+        SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s1,
+        SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s2,
+        SUM(CASE WHEN season_number::NUMERIC = 3 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s3
+    FROM 
+        public."stark_tank_data"
+    GROUP BY 
+        industry
+    HAVING 
+        SUM(CASE WHEN season_number::NUMERIC = 3 THEN total_deal_amount_in_lakhs::NUMERIC END) > SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) 
+	AND SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) > SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) 
+	AND SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) != 0
+)
+
+
+SELECT * FROM cte1;
+
+}
+-----------
+
+Complete code
+
+
+WITH cte1 AS (
+    SELECT 
+        industry,
+        SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s1,
+        SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s2,
+        SUM(CASE WHEN season_number::NUMERIC = 3 THEN total_deal_amount_in_lakhs::NUMERIC END) AS s3
+    FROM 
+        public."stark_tank_data"
+    GROUP BY 
+        industry
+    HAVING 
+        SUM(CASE WHEN season_number::NUMERIC = 3 THEN total_deal_amount_in_lakhs::NUMERIC END) > SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) 
+		AND SUM(CASE WHEN season_number::NUMERIC = 2 THEN total_deal_amount_in_lakhs::NUMERIC END) > SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) 
+		AND SUM(CASE WHEN season_number::NUMERIC = 1 THEN total_deal_amount_in_lakhs::NUMERIC END) != 0
+)
+
+-- SELECT * FROM cte1;
+
+
+select a.industry,
+b.season_number,
+count(b.startup_name),
+count( case when b.received_offer = 'Yes' then startup_name end) as rev,
+count( case when b.accepted_offer = 'Yes' then startup_name end) as accep
+from cte1 as a 
+inner join 
+public."stark_tank_data" as b
+on a.industry = b.industry
+group by a.industry, b.season_number
+
+
+
+6. Every shark wants to know in how much year their investment will be returned, so you must create a system for them, where shark will enter the name of the startup’s and the based on the total deal and equity given in how many years their principal amount will be returned and make their investment decisions.
+
+
+
+
+CREATE OR REPLACE FUNCTION total_return3(startup TEXT)
+RETURNS TABLE (
+    startup_name TEXT,
+    yearly TEXT,
+    total_deal TEXT,
+    total_equity TEXT,
+	total_years text
+) AS $$ 
+BEGIN
+    IF (select s.accepted_offer = 'NO' from public."stark_tank_data" s where s.startup_name = startup)
+-- 	then return query select s.startup_name, s.yearly_revenue_in_lakhs,s.total_deal_amount_in_lakhs','DHHUWIHDDIUHD';
+	then return query select s.startup_name, 
+	s.yearly_revenue_in_lakhs,s.total_deal_amount_in_lakhs, 
+	s.total_deal_equity, 
+	(s.total_deal_amount_in_lakhs :: numeric / ((s.total_deal_equity :: numeric * 100)* s.yearly_revenue_in_lakhs :: numeric)) :: text
+
+	from public."stark_tank_data";
+	
+    ELSIF ( select s.accepted_offer = 'NO' or s.yearly_revenue_in_lakhs = 'Not_Mentioned' 
+		   from public."stark_tank_data" s where s.startup_name = startup ) 
+		   THEN
+        RETURN QUERY
+        SELECT s.startup_name, s.yearly_revenue_in_lakhs,s.total_deal_amount_in_lakhs, 
+		s.total_deal_equity, 
+		(s.total_deal_amount_in_lakhs :: numeric / ((s.total_deal_equity :: numeric * 100)* s.yearly_revenue_in_lakhs :: numeric)) :: text
+		from public."stark_tank_data";
+		
+    ELSE
+        RETURN QUERY
+        SELECT s.startup_name,
+               COALESCE(s.yearly_revenue_in_lakhs::TEXT, 'Sale') AS yearly,
+               COALESCE(s.total_deal_amount_in_lakhs::TEXT, 'Hoja') AS total_deal,
+               COALESCE(s.total_deal_equity::TEXT, 'Kutta') AS total_equity,
+			   coalesce((s.total_deal_amount_in_lakhs :: numeric / ((s.total_deal_equity :: numeric * 100)* s.yearly_revenue_in_lakhs :: numeric)) :: text, 'HHS') as kood
+        FROM public."stark_tank_data" s
+        WHERE s.startup_name = startup and s.yearly_revenue_in_lakhs not like '%Not_Mentioned%';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+select * from total_return3('TwistingScoops')
+
+
+
+
+
+7. In the world of startup investing, we're curious to know which big-name investor, often referred to as "sharks," tends to put the most money into each deal on average. This comparison helps us see who's the most generous with their investments and how they measure up against their fellow investors.
+
+
+
+select sharkname, round(avg(inv :: numeric), 2) as cnt from
+	(
+		select namita_investment_amount_in_lakhs as inv, 
+		'Namita' as sharkname from public."stark_tank_data"
+		where namita_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select vineeta_investment_amount_in_lakhs as inv, 
+		'Vineeta' as sharkname from public."stark_tank_data"
+		where vineeta_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select anupam_investment_amount_in_lakhs as inv, 
+		'Anupam' as sharkname from public."stark_tank_data"
+		where anupam_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select aman_investment_amount_in_lakhs as inv, 
+		'Aman' as sharkname from public."stark_tank_data"
+		where aman_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select peyush_investment_amount_in_lakhs as inv, 
+		'Peyush' as sharkname from public."stark_tank_data"
+		where peyush_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select amit_investment_amount_in_lakhs as inv, 
+		'Amit' as sharkname from public."stark_tank_data"
+		where Amit_investment_amount_in_lakhs :: numeric > 0
+		union all
+		select ashneer_investment_amount as inv, 
+		'Ashneer' as sharkname from public."stark_tank_data"
+		where ashneer_investment_amount :: numeric > 0
+	)
+	
+	group by sharkname
+	order by cnt desc
+	
+	
+	
+8. Develop a stored procedure that accepts inputs for the season number and the name of a shark. The procedure will then provide detailed insights into the total investment made by that specific shark across different industries during the specified season. Additionally, it will calculate the percentage of their investment in each sector relative to the total investment in that year, giving a comprehensive understanding of the shark's investment distribution and impact.	
+
+
+
+
+
+CREATE OR REPLACE FUNCTION get_shark_info_total(season_num TEXT, shark_name TEXT)
+RETURNS TABLE (
+    industry_name TEXT,
+    investment_in_this_season TEXT,
+    percentage_from_sharktank TEXT
+) AS $$ 
+DECLARE
+    total NUMERIC;
+BEGIN
+    IF shark_name = 'Namita' THEN
+        SELECT SUM(namita_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE namita_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(namita_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(namita_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND namita_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+		
+	ELSIF shark_name = 'Vineeta' THEN
+        SELECT SUM(vineeta_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE vineeta_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(vineeta_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(vineeta_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND vineeta_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+		
+	ELSIF shark_name = 'Amit' THEN
+        SELECT SUM(amit_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE amit_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(amit_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(amit_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND amit_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+	
+	ELSIF shark_name = 'Peyush' THEN
+        SELECT SUM(peyush_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE peyush_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(peyush_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(peyush_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND peyush_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+		
+	ELSIF shark_name = 'Aman' THEN
+        SELECT SUM(aman_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE aman_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(aman_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(aman_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND aman_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+	
+		
+		
+	ELSIF shark_name = 'Anupam' THEN
+        SELECT SUM(anupam_investment_amount_in_lakhs::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE anupam_investment_amount_in_lakhs::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(anupam_investment_amount_in_lakhs::NUMERIC)::TEXT AS inv_per,
+               round((SUM(anupam_investment_amount_in_lakhs::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND anupam_investment_amount_in_lakhs::NUMERIC > 0
+        GROUP BY industry;
+		
+		
+	ELSIF shark_name = 'Ashneer' THEN
+        SELECT SUM(ashneer_investment_amount::NUMERIC)
+        INTO total
+        FROM public."stark_tank_data"
+        WHERE ashneer_investment_amount::NUMERIC > 0;
+        
+        RETURN QUERY
+        SELECT industry, 
+               SUM(ashneer_investment_amount::NUMERIC)::TEXT AS inv_per,
+               round((SUM(ashneer_investment_amount::NUMERIC) / total * 100), 2)::TEXT AS percentage_industry
+        FROM public."stark_tank_data"
+        WHERE season_number = season_num
+          AND ashneer_investment_amount::NUMERIC > 0
+        GROUP BY industry;
+		
+     ELSE
+        RETURN QUERY
+        SELECT 'Unknown'::TEXT AS industry_name,
+               'N/A'::TEXT AS investment_in_this_season,
+               'N/A'::TEXT AS percentage_from_sharktank;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+select * from get_shark_info_total('1', 'Namita')
+
+
+
+
+
+9. In the realm of venture capital, we're exploring which shark possesses the most diversified investment portfolio across various industries. By examining their investment patterns and preferences, we aim to uncover any discernible trends or strategies that may shed light on their decision-making processes and investment philosophies.
+
+
+
+-- select a.industry, a.Ma, a.cnt2, c.cnt2 from
+
+select a.industry, a.Namita, b.Vineeta, c.Amit, d.Aman, e.Peyush, f.Anupam from
+(
+(SELECT 
+    industry, 
+    COUNT(namita_investment_amount_in_lakhs) AS Namita
+FROM 
+    public."stark_tank_data"
+where namita_investment_amount_in_lakhs :: numeric != 0
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt1 DESC
+)  as a
+
+inner join 
+(
+SELECT 
+    industry, 
+    COUNT(vineeta_investment_amount_in_lakhs) AS Vineeta
+FROM 
+    public."stark_tank_data"
+	
+where vineeta_investment_amount_in_lakhs :: numeric != 0 
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt2 asc
+)b
+	
+on a.industry = b.industry
+	
+inner join 
+(
+SELECT 
+    industry, 
+    COUNT(amit_investment_amount_in_lakhs) AS Amit
+FROM 
+    public."stark_tank_data"
+	
+where amit_investment_amount_in_lakhs :: numeric != 0 
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt2 asc
+) c
+	
+on c.industry = b.industry
+	
+inner join 
+(
+SELECT 
+    industry, 
+    COUNT(aman_investment_amount_in_lakhs) AS Aman
+FROM 
+    public."stark_tank_data"
+	
+where aman_investment_amount_in_lakhs :: numeric != 0 
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt2 asc
+) d
+	
+on c.industry = d.industry
+	
+inner join 
+(
+SELECT 
+    industry, 
+    COUNT(peyush_investment_amount_in_lakhs) AS Peyush
+FROM 
+    public."stark_tank_data"
+	
+where peyush_investment_amount_in_lakhs :: numeric != 0 
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt2 asc
+) e
+	
+on d.industry = e.industry
+	
+inner join 
+(
+SELECT 
+    industry, 
+    COUNT(anupam_investment_amount_in_lakhs) AS Anupam
+FROM 
+    public."stark_tank_data"
+	
+where anupam_investment_amount_in_lakhs :: numeric != 0 
+GROUP BY 
+    industry
+-- ORDER BY 
+--     cnt2 asc
+) f
+	
+on e.industry = f.industry
+)
+
+
+
+
+	
+	
+

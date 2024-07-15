@@ -1,0 +1,181 @@
+ALTER TABLE IF EXISTS public."Swiggy_Dataset"
+    ADD COLUMN hotel_name text,
+	ADD COLUMN rating text,
+	ADD COLUMN time_minutes text,
+	ADD COLUMN food_type text,
+	ADD COLUMN locations text,
+	ADD COLUMN offer_above text,
+	ADD COLUMN offer_percentage text;
+
+
+
+
+select sum(case when hotel_name = '' then 1 else 0 end) as null_count_HN,
+ sum(case when rating = '' then 1 else 0 end) as null_count_R,
+ sum(case when time_minutes = '' then 1 else 0 end) as null_count_TM ,
+ sum(case when food_type = '' then 1 else 0 end) as null_count_FT,
+ sum(case when locations = '' then 1 else 0 end) as null_count_L,
+ sum(case when offer_percentage = '' then 1 else 0 end) as null_count_OP,
+ sum(case when offer_above = '' then 1 else 0 end) as null_count_OA from public."Swiggy_Dataset";
+
+select * from information_schema.columns where table_name = 'Swiggy_Dataset';
+
+
+
+
+
+
+1. create a function to count null values in every columm
+
+CREATE OR REPLACE FUNCTION count_nulls_in_swiggy_dataset()
+RETURNS TABLE(
+    null_count_hotel_name int, 
+    null_count_rating int, 
+    null_count_time_minutes int, 
+    null_count_food_type int, 
+    null_count_locations int, 
+    null_count_offer_above int, 
+    null_count_offer_percentage int
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY EXECUTE (
+        WITH sql_query AS (
+            SELECT STRING_AGG(
+                'sum(case when "' || column_name || '" IS NULL then 1 else 0 end)::int as' || column_name,
+                ', '
+            ) AS op
+            FROM information_schema.columns
+            WHERE table_name = 'Swiggy_Dataset' AND table_schema = 'public'
+        )
+        SELECT 'SELECT ' || op || ' FROM public."Swiggy_Dataset"' FROM sql_query
+    );
+END $$;
+
+SELECT * FROM count_nulls_in_swiggy_dataset();
+
+
+
+
+
+2: Change the rating mins/ wrong values to time minutes column
+
+select rating, time_minutes from public."Swiggy_Dataset"
+where rating like '%mins%'
+
+SELECT
+    rating,
+	time_minutes,
+    split_part(rating, ' ', 1) AS first_word,
+    split_part(rating, ' ', 2) AS second_word
+FROM 
+     public."Swiggy_Dataset"
+	 
+where rating like '%mins%'
+
+update 
+set time_minutes = split_part(rating, ' ', 1)
+where rating like '%mins%'
+
+
+
+
+3. clean rating column
+
+select avg(rating::float) from public."Swiggy_Dataset"
+where rating not like '%mins%'
+
+update public."Swiggy_Dataset"
+set rating = '4.1'
+where rating like '%mins%'
+
+
+
+
+-- 3. clean ratings
+
+select round(avg(rating::numeric),1) , locations
+from public."Swiggy_Dataset"
+where rating not like '%mins%'
+group by locations
+
+
+update public."Swiggy_Dataset" as t
+join()
+
+
+select sd.locations, sd.rating from public."Swiggy_Dataset" as sd
+join
+(
+	select locations, round(avg(rating::numeric), 1) as avg_rat
+	from public."Swiggy_Dataset"
+	where rating not like '%mins%'
+	group by locations
+) 
+as avg_table 
+on sd.locations = avg_table.locations
+
+
+
+-- update ratings for location wise
+
+with cte1 as (
+	select locations, round(avg(rating::numeric), 1) as avg_rat
+	from public."Swiggy_Dataset"
+	where rating not like '% mins%'
+	group by locations
+)
+
+update public."Swiggy_Dataset" AS s1
+set rating = c1.avg_rat
+from cte1 as c1
+where s1.locations = c1.locations and s1.rating like '% mins%'
+
+
+
+-- 4. clean location
+
+select distinct(locations) from public."Swiggy_Dataset"
+
+
+update public."Swiggy_Dataset"
+set locations = 'Kandivali East'
+where locations like '%West%'
+
+
+
+-- 5. clean offer columns
+
+
+select offer_above, offer_percentage  from public."Swiggy_Dataset"
+where offer_above like '%avai%'
+
+update public."Swiggy_Dataset"
+set offer_percentage = 0
+where offer_above = 'not_available'
+
+
+
+
+6. clean food_types
+
+select food_type from public."Swiggy_Dataset"
+
+select position('n' in 'Burgers, Biryani, American, Snacks, Fast Food') as id
+
+
+select trim(SPLIT_PART(food_type, ',', 3)) as ll from public."Swiggy_Dataset"
+
+with cte1 as(
+select hotel_name,rating,time_minutes,locations, offer_above,offer_percentage, 
+UNNEST(STRING_TO_ARRAY(trim(food_type), ',')) AS food_type_single
+from public."Swiggy_Dataset"
+)
+
+select hotel_name,rating,locations, time_minutes,
+food_type_single, row_number() over (partition by food_type_single) as count_items
+from cte1
+-- order by rating desc, time_minutes asc
+
+

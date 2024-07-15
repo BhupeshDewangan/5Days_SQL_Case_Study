@@ -1,0 +1,472 @@
+1. You have got duplciate rows in table you have to delete them.
+
+CREATE TABLE employees (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    hire_date DATE NOT NULL
+);
+
+-- Insert 15 rows into the employees table
+INSERT INTO employees (first_name, last_name, email, hire_date)
+VALUES ('John', 'Doe', 'johndoe@example.com', '2022-01-15'),
+       ('Jane', 'Smith', 'janesmith@example.com', '2021-11-30'),
+       ('Alice', 'Johnson', 'alicejohnson@example.com', '2022-03-10'),
+       ('David', 'Brown', 'davidbrown@example.com', '2022-02-20'),
+       ('Emily', 'Davis', 'emilydavis@example.com', '2022-04-05'),
+       ('Michael', 'Wilson', 'michaelwilson@example.com', '2022-01-05'),
+       ('Sarah', 'Taylor', 'sarahtaylor@example.com', '2022-03-25'),
+       ('Kevin', 'Clark', 'kevinclark@example.com', '2022-02-15'),
+       ('Jessica', 'Anderson', 'jessicaanderson@example.com', '2022-04-01'),
+       ('Matthew', 'Martinez', 'matthewmartinez@example.com', '2022-01-10'),
+       ('Laura', 'Robinson', 'laurarobinson@example.com', '2022-03-15'),
+       ('Daniel', 'White', 'danielwhite@example.com', '2022-02-05'),
+       ('Amy', 'Harris', 'amyharris@example.com', '2022-04-20'),
+       ('Jason', 'Lee', 'jasonlee@example.com', '2022-01-20'),
+       ('Rachel', 'Moore', 'rachelmoore@example.com', '2022-03-05');
+
+
+-- inserting duplicates
+INSERT INTO employees (first_name, last_name, email, hire_date) values
+('Emily', 'Davis', 'emilydavis@example.com', '2022-04-05'),
+('Matthew', 'Martinez', 'matthewmartinez@example.com', '2022-01-10');
+
+
+delete from employees where id in 
+(
+	select id  from
+	(
+		select id, row_number() over( partition by first_name, last_name order by id ) as rnk 
+		from public.employees
+	)k where rnk>1
+)
+
+
+select * from public.employees
+
+
+
+
+
+
+2. You sales manager and you have 3 territories under you,   the manager decided that for each territory the salesperson who have  sold more than 30%  of the average of that territory  will  get  hike  and person who have done 80% less than the average salary will be issued PIP , now for all you have to  tell your manager if he/she will get a hike or will be in a PIP
+
+
+create table territary_sales
+(  
+    sales_person varchar(100),
+    territory varchar(2),
+    sales int 
+)
+
+
+INSERT INTO territary_sales (sales_person, territory, sales)
+VALUES ('John', 'A',40),
+       ('Alice', 'A', 150),
+       ('Michael', 'A', 200),
+       ('Sarah', 'A', 120),
+       ('Kevin', 'A', 180),
+       ('Jessica', 'A', 90),
+       ('David', 'A', 130),
+       ('Emily', 'A', 140),
+       ('Daniel', 'A', 270),
+       ('Laura', 'A', 300),
+       ('Jane', 'B', 180),
+       ('Robert', 'B', 220),
+       ('Mary', 'B', 190),
+       ('Peter', 'B', 210),
+       ('Emma', 'B', 130),
+       ('Matthew', 'B', 140),
+       ('Olivia', 'B', 170),
+       ('William', 'B', 240),
+       ('Sophia', 'B', 210),
+       ('Andrew', 'B', 300),
+       ('James', 'C', 300),
+       ('Linda', 'C', 270),
+       ('Richard', 'C', 320),
+       ('Jennifer', 'C', 280),
+       ('Charles', 'C', 250),
+       ('Amanda', 'C', 290),
+       ('Thomas', 'C', 260),
+       ('Susan', 'C', 310),
+       ('Paul', 'C', 280),
+       ('Karen', 'C', 300);
+
+
+WITH territory_avg_sales AS (
+    SELECT 
+        territory,
+        ROUND(AVG(sales), 2) AS territory_mean
+    FROM 
+        public.territary_sales
+    GROUP BY 
+        territory
+)
+
+
+SELECT 
+    s.*, 
+    CASE 
+        WHEN sales > 1.3 * t.territory_mean THEN 'HIKE'
+        WHEN sales < 0.8 * t.territory_mean THEN 'PIP'
+        ELSE 'Same parameter' 
+    END AS Final_decision
+FROM 
+     public.territary_sales s
+LEFT JOIN 
+    territory_avg_sales t ON s.territory = t.territory;
+
+
+
+3. You are database administrator for a university , University have declared result for a special exam , However children were not happy with the marks as marks were not given appropriately and many students marksheet was blank , so they striked. Due to strike univerisity again checked the sheets and updates were made. Handle these updates
+-- Create the students_new table
+CREATE TABLE students_new (
+    roll INT PRIMARY KEY,
+    s_name VARCHAR(100),
+    marks FLOAT
+);
+
+-- Insert initial data into students_new
+INSERT INTO students_new (roll, s_name, marks)
+VALUES 
+    (1, 'John', 75),
+    (2, 'Alice', 55),
+    (3, 'Bob', 40),
+    (4, 'Sarah', 85),
+    (5, 'Mike', 65),
+    (6, 'Emily', 50),
+    (7, 'David', 70),
+    (8, 'Sophia', 45),
+    (9, 'Tom', 55),
+    (10, 'Emma', 80),
+    (11, 'James', 58),
+    (12, 'Lily', 72),
+    (13, 'Andrew', 55),
+    (14, 'Olivia', 62),
+    (15, 'Daniel', 78);
+
+-- Create the std_updates_new table
+CREATE TABLE std_updates_new (
+    roll INT,
+    s_name VARCHAR(100),
+    marks FLOAT
+);
+
+-- Insert updates into std_updates_new
+INSERT INTO std_updates_new (roll, s_name, marks)
+VALUES 
+    (8, 'Sophia', 75),   -- existing
+    (9, 'Tom', 85),
+    (16, 'Grace', 55),   -- new
+    (17, 'Henry', 72),
+    (18, 'Sophie', 45),
+    (19, 'Jack', 58),
+    (20, 'Ella', 42);
+
+-- Update existing records
+UPDATE public.students_new s
+SET marks = t.marks
+FROM public.std_updates_new t
+WHERE s.roll = t.roll;
+
+-- Insert new records
+INSERT INTO students_new (roll, s_name, marks)
+SELECT t.roll, t.s_name, t.marks
+FROM public.std_updates_new t
+LEFT JOIN students_new s ON s.roll = t.roll
+WHERE s.roll IS NULL;
+
+-- Truncate the std_updates_new table
+TRUNCATE TABLE std_updates_new;
+
+-- Select data from students_new and std_updates_new for verification
+SELECT * FROM students_new;
+SELECT * FROM std_updates_new;
+
+
+-- Create the function for processing updates and inserts
+CREATE OR REPLACE FUNCTION process_updates_and_inserts() RETURNS VOID AS $$
+BEGIN
+    -- Update existing records
+    UPDATE students_new s
+    SET marks = t.marks
+    FROM std_updates_new t
+    WHERE s.roll = t.roll;
+
+    -- Insert new records
+    INSERT INTO students_new (roll, s_name, marks)
+    SELECT t.roll, t.s_name, t.marks
+    FROM std_updates_new t
+    LEFT JOIN students_new s ON s.roll = t.roll
+    WHERE s.roll IS NULL;
+
+    -- Truncate the std_updates_new table
+    TRUNCATE TABLE std_updates_new;
+END; $$ LANGUAGE plpgsql;
+
+-- Call the function
+SELECT process_updates_and_inserts();
+
+
+
+
+5. You have a table that stores student information  roll number wise , now some of the students have left the school due to which the  roll numbers became discontinuous
+Now your task is to make them continuous.
+
+
+
+-- Creating the table
+CREATE TABLE students (
+    roll_number SERIAL PRIMARY KEY,
+    name VARCHAR(50),
+    marks NUMERIC(5, 2),
+    favourite_subject VARCHAR(50)
+);
+
+-- Truncate the table
+TRUNCATE TABLE students;
+
+-- Inserting data
+INSERT INTO students (name, marks, favourite_subject) VALUES
+    ('Rahul Sharma', 75.5, 'Mathematics'),
+    ('Priya Patel', 82.0, 'Science'),
+    ('Amit Singh', 68.5, 'History'),
+    ('Sneha Reddy', 90.75, 'English'),
+    ('Vivek Gupta', 79.0, 'Physics'),
+    ('Ananya Desai', 85.25, 'Chemistry'),
+    ('Rajesh Verma', 72.0, 'Biology'),
+    ('Neha Mishra', 88.5, 'Computer Science'),
+    ('Arun Kumar', 76.75, 'Economics'),
+    ('Pooja Mehta', 94.0, 'Geography'),
+    ('Sanjay Gupta', 81.5, 'Mathematics'),
+    ('Divya Sharma', 77.0, 'Science'),
+    ('Rakesh Patel', 83.5, 'History'),
+    ('Kavita Reddy', 89.25, 'English'),
+    ('Ankit Verma', 72.0, 'Physics');
+
+SELECT * FROM public.students;
+
+-- Step 1: Select with row number
+SELECT *, ROW_NUMBER() OVER (ORDER BY roll_number) AS roll FROM students;
+
+-- Step 2 and 3: Update roll numbers
+WITH numbered_students AS (
+    SELECT *, ROW_NUMBER() OVER (ORDER BY roll_number) AS new_roll
+    FROM students
+)
+
+UPDATE students s
+SET roll_number = ns.new_roll
+FROM numbered_students ns
+WHERE s.roll_number = ns.roll_number;
+
+-- Creating the function to renumber students after delete
+CREATE OR REPLACE FUNCTION renumber_students_after_delete() 
+RETURNS VOID AS $$
+BEGIN
+    WITH numbered_students AS (
+        SELECT *, ROW_NUMBER() OVER (ORDER BY roll_number) AS new_roll
+        FROM students
+    )
+    UPDATE students s
+    SET roll_number = ns.new_roll
+    FROM numbered_students ns
+    WHERE s.roll_number = ns.roll_number;
+END; 
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger function
+CREATE OR REPLACE FUNCTION trigger_renumber_students() 
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM renumber_students_after_delete();
+    RETURN NULL; -- Triggers require a return value
+END; 
+$$ LANGUAGE plpgsql;
+
+-- Creating the trigger
+CREATE TRIGGER after_student_delete
+AFTER DELETE ON students
+FOR EACH STATEMENT EXECUTE FUNCTION trigger_renumber_students();
+
+-- Deleting students
+DELETE FROM students WHERE roll_number IN (3, 5, 9, 10);
+
+
+
+
+
+
+6. you have a table where there is sales data for entire month you have to calculate cumultive sum for the entire  month data  show it month wise and week wise both	
+
+
+ CREATE TABLE table_sales (
+    sale_date DATE,
+    day_of_week VARCHAR(20),
+    sales_amount DECIMAL(10, 2)
+);
+
+
+INSERT INTO table_sales (sale_date, day_of_week, sales_amount) VALUES
+    ('2024-04-01', 'Friday', 1500.00),
+    ('2024-04-02', 'Saturday', 1800.50),
+    ('2024-04-03', 'Sunday', 2500.75),
+    ('2024-04-04', 'Monday', 3200.25),
+    ('2024-04-05', 'Tuesday', 2800.60),
+    ('2024-04-06', 'Wednesday', 2100.90),
+    ('2024-04-07', 'Thursday', 3500.00),
+    ('2024-04-08', 'Friday', 2200.00),
+    ('2024-04-09', 'Saturday', 1900.25),
+    ('2024-04-10', 'Sunday', 2600.75),
+    ('2024-04-11', 'Monday', 3100.50),
+    ('2024-04-12', 'Tuesday', 2900.80),
+    ('2024-04-13', 'Wednesday', 2400.70),
+    ('2024-04-14', 'Thursday', 3800.00),
+    ('2024-04-15', 'Friday', 3200.50),
+    ('2024-04-16', 'Saturday', 1800.75),
+    ('2024-04-17', 'Sunday', 2700.25),
+    ('2024-04-18', 'Monday', 3000.20),
+    ('2024-04-19', 'Tuesday', 2600.90),
+    ('2024-04-20', 'Wednesday', 2200.60),
+    ('2024-04-21', 'Thursday', 3600.00),
+    ('2024-04-22', 'Friday', 2900.50),
+    ('2024-04-23', 'Saturday', 2100.75),
+    ('2024-04-24', 'Sunday', 2800.25),
+    ('2024-04-25', 'Monday', 3300.80),
+    ('2024-04-26', 'Tuesday', 2700.70),
+    ('2024-04-27', 'Wednesday', 2300.00),
+    ('2024-04-28', 'Thursday', 3700.50),
+    ('2024-04-29', 'Friday', 3100.75),
+    ('2024-04-30', 'Saturday', 1900.25);
+
+
+select s.sale_date, day_of_week, sales_amount, running_sum from  public.table_sales as s
+inner join
+(
+select sale_date,sum(sales_amount)  over (order by sale_date) as running_sum from public.table_sales
+)k on s.sale_date=k.sale_date
+
+
+-- for each week closing
+select * from 
+(
+	select s.sale_date, day_of_week, sales_amount, running_sum from  public.table_sales as s
+	inner join
+	(
+	select sale_date, sum(sales_amount)  over (order by sale_date) as running_sum from public.table_sales
+	)k on s.sale_date=k.sale_date
+)m where day_of_week= 'Friday'
+
+
+7. Given a Sales table containing SaleID, ProductID, SaleAmount, and SaleDate, write a SQL query to find the top  2 salespeople based on their total sales amount for the current month. If there's a tie in sales amount, prioritize the salesperson with the earlier registration date.
+  
+
+ CREATE TABLE Sales (
+    Sale_man_registration_date date ,
+    ProductID INT,
+    SaleAmount DECIMAL(10, 2),
+    SaleDate DATE,
+    SalespersonID INT
+);
+
+
+INSERT INTO Sales (Sale_man_registration_date, ProductID, SaleAmount, SaleDate, SalespersonID)
+VALUES
+    ('2023-07-15', 101, 150.00, '2023-07-05', 1),
+    ('2023-07-15', 102, 200.00, '2023-07-10', 2),
+    ('2023-07-15', 103, 180.00, '2023-07-15', 3),
+    ('2023-07-15', 104, 220.00, '2023-07-20', 4),
+    ('2023-07-15', 105, 190.00, '2023-07-25', 5),
+    ('2023-07-15', 101, 210.00, '2023-08-05', 1),
+    ('2023-07-15', 102, 180.00, '2023-08-10', 2),
+    ('2023-07-15', 103, 200.00, '2023-08-15', 3),
+    ('2023-07-15', 104, 190.00, '2023-08-20', 4),
+    ('2023-07-15', 105, 220.00, '2023-08-25', 5),
+    ('2024-01-10', 101, 230.00, '2024-01-05', 1),
+    ('2024-01-10', 102, 190.00, '2024-01-10', 2),
+    ('2024-01-10', 103, 220.00, '2024-01-15', 3),
+    ('2024-01-10', 104, 190.00, '2024-01-20', 4),
+    ('2024-01-10', 105, 230.00, '2024-01-25', 5),
+    ('2024-01-10', 101, 240.00, '2024-02-05', 1),
+    ('2024-01-10', 102, 180.00, '2024-02-10', 2),
+    ('2024-01-10', 103, 220.00, '2024-02-15', 3),
+    ('2024-01-10', 104, 200.00, '2024-02-20', 4),
+    ('2024-01-10', 105, 210.00, '2024-02-25', 5),
+    ('2024-04-15', 101, 250.00, '2024-04-05', 1),
+    ('2024-04-15', 102, 200.00, '2024-04-10', 2),
+    ('2024-04-15', 103, 180.00, '2024-04-15', 3),
+    ('2024-04-15', 104, 220.00, '2024-04-20', 4),
+    ('2024-04-15', 105, 220.00, '2024-04-25', 5),
+    ('2024-04-15', 101, 210.00, '2024-05-05', 1),
+    ('2024-04-15', 102, 180.00, '2024-05-10', 2),
+    ('2024-04-15', 103, 200.00, '2024-05-15', 3),
+    ('2024-04-15', 104, 190.00, '2024-05-20', 4),
+    ('2024-04-15', 105, 220.00, '2024-05-25', 5);
+
+
+
+
+update public.sales set
+Sale_man_registration_date= '2023-04-15'
+where salespersonid = 5
+-- select * from public."sales"
+
+select salespersonId, sum(saleamount)as summ, min(Sale_man_registration_date) as mindate  
+from public.sales 
+where extract('year' from saledate) = 2024 and extract('month' from saledate) = 4 
+group by salespersonid
+order by summ desc , mindate
+limit 3 
+
+
+
+
+
+8. You have got transaction data in the format  transaction id , date , type , amount and description , howvevrr this format is not easily interpretable , now you have to make it in the good format ( month , year, revenue, expenditure, profit)
+
+CREATE TABLE transactions (
+    transaction_id INT PRIMARY KEY,
+    transaction_date DATE,
+    transaction_type VARCHAR(50),
+    amount DECIMAL(10, 2),
+    descriptions varchar(1000)
+);
+
+
+INSERT INTO transactions (transaction_id, transaction_date, transaction_type, amount, descriptions) VALUES
+(1, '2024-01-05', 'Expense', 500.00, 'Office supplies'),
+(2, '2024-01-15', 'Revenue', 1500.00, 'Consulting fees'),
+(3, '2024-02-10', 'Expense', 300.00, 'Travel expenses'),
+(4, '2024-02-22', 'Revenue', 2000.00, 'Product sales'),
+(5, '2024-03-03', 'Expense', 700.00, 'Advertising costs'),
+(6, '2024-03-18', 'Revenue', 1800.00, 'Service subscriptions'),
+(7, '2024-04-12', 'Expense', 400.00, 'Software licenses'),
+(8, '2024-04-29', 'Revenue', 2500.00, 'Event sponsorship'),
+(9, '2024-01-09', 'Expense', 600.00, 'Equipment maintenance'),
+(10, '2024-01-14', 'Revenue', 1200.00, 'Online course sales'),
+(11, '2024-02-20', 'Expense', 450.00, 'Utility bills'),
+(12, '2024-02-25', 'Revenue', 3000.00, 'Consulting services'),
+(13, '2024-03-05', 'Expense', 550.00, 'Office rent'),
+(14, '2024-03-08', 'Revenue', 1800.00, 'Web development project'),
+(15, '2024-04-19', 'Expense', 400.00, 'Employee training'),
+(16, '2024-04-21', 'Revenue', 2200.00, 'Product sales'),
+(17, '2024-01-28', 'Expense', 750.00, 'Marketing campaign'),
+(18, '2024-01-15', 'Revenue', 1600.00, 'Consulting fees'),
+(19, '2024-02-21', 'Expense', 350.00, 'Office supplies'),
+(20, '2024-02-28', 'Revenue', 2800.00, 'Event ticket sales');
+
+
+
+select * from transactions;
+select extract('month' from transaction_date)  as months , extract('year' from transaction_date) as years,
+sum(case when transaction_type ='Revenue'  then amount else 0 end ) as total_revenue,
+sum(case when transaction_type ='Expense'  then amount else 0 end ) as total_expenses,
+sum(case when transaction_type ='Revenue'  then amount else 0 end )- sum(case when transaction_type ='Expense'  then amount else 0 end ) as net_profit
+from 
+public.transactions 
+group by 
+   extract('year' from transaction_date), extract('month' from transaction_date)
+order by  months
+
+
